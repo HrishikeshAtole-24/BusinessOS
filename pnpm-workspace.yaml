@@ -5,6 +5,7 @@ packages:
 allowBuilds:
   '@prisma/engines': true
   esbuild: true
+  msgpackr-extract: true
   prisma: true
 
 # Pinned once, consumed everywhere via `catalog:` in package.json dependencies.

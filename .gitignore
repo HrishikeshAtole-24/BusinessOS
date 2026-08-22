@@ -49,10 +49,14 @@ tmp/
 /generated/prisma
 
 # Prisma generated client (Prisma 7 emits to a real directory, not node_modules)
-generated/
+packages/database/src/generated/
 
 # AI agent tooling. `prisma init` vendors ~480K of skill docs into .agents/;
 # skills-lock.json is committed so they can be restored reproducibly.
 .agents/
 .claude/
 .windsurf/
+
+# Next.js
+apps/web/.next/
+apps/web/next-env.d.ts
