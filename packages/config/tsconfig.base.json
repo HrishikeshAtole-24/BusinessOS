@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "BusinessOS Base",
+  "compilerOptions": {
+    "target": "ES2024",
+    "lib": ["ES2024"],
+    "moduleDetection": "force",
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+
+    // --- Strictness (Section 27.2) ---------------------------------------
+    // `strict` alone is not enough. The four flags below catch the classes of
+    // bug that actually show up in this codebase: array/record access that
+    // silently returns undefined, optional properties assigned `undefined`,
+    // unhandled union members in state-machine switches, and overrides that
+    // drift from their base.
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // --- Module semantics -------------------------------------------------
+    // `verbatimModuleSyntax` forces explicit `import type`, which keeps
+    // type-only imports from surviving into emitted JS.
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "removeComments": false,
+    "pretty": true
+  },
+  "exclude": ["node_modules", "dist", ".next", "coverage"]
+}

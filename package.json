@@ -1,0 +1,35 @@
+{
+  "name": "businessos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BusinessOS â€” a multi-tenant B2B company operations platform",
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=24.0.0 <25.0.0",
+    "pnpm": ">=11.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
+    "build": "pnpm --filter \"./apps/*\" build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter @businessos/web test:e2e",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "db:seed": "tsx prisma/seed.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@prisma/client": "7.9.1",
+    "@types/node": "^24.10.1",
+    "dotenv": "^17.4.2",
+    "prettier": "^3.6.2",
+    "prisma": "7.9.1",
+    "tsx": "^4.20.6",
+    "typescript": "5.9.3"
+  }
+}
