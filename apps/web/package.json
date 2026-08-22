@@ -1,0 +1,32 @@
+{
+  "name": "@businessos/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@businessos/contracts": "workspace:*",
+    "@tanstack/react-query": "catalog:",
+    "next": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-hook-form": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@businessos/config": "workspace:*",
+    "@playwright/test": "catalog:",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.4",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
