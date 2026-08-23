@@ -1,0 +1,186 @@
+/**
+ * Design tokens — the single source of truth for every visual value.
+ *
+ * ADR-016: no component file may contain a raw hex colour or a magic pixel
+ * number. If a value is needed twice, it belongs here. This file is the guard
+ * rail that replaces what a utility framework would enforce with a compiler.
+ *
+ * Light is the base definition; dark overrides only the tokens that change.
+ * Duplicating whole rulesets per theme is how themes drift apart.
+ */
+
+:root {
+  /* --- Spacing -----------------------------------------------------------
+     A 4px base scale. Everything is a multiple, so vertical rhythm holds
+     without anyone eyeballing it. */
+  --space-0: 0;
+  --space-1: 0.25rem; /*  4px */
+  --space-2: 0.5rem; /*   8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /*    16px */
+  --space-5: 1.5rem; /*  24px */
+  --space-6: 2rem; /*    32px */
+  --space-7: 3rem; /*    48px */
+  --space-8: 4rem; /*    64px */
+
+  /* --- Typography --------------------------------------------------------
+     System font stack: no web font request, no layout shift, and it looks
+     native on every platform. */
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Code', Consolas, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.55;
+
+  /* Negative tracking on large text only. At small sizes it hurts legibility. */
+  --tracking-tight: -0.02em;
+  --tracking-wide: 0.06em;
+
+  /* --- Radius ------------------------------------------------------------ */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 999px;
+
+  /* --- Palette (light) ---------------------------------------------------
+     Semantic names, not colour names. `--surface` can become dark without
+     being renamed; `--grey-100` could not. */
+  --canvas: #f7f8fa;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f1f3f6;
+  --surface-hover: #f1f3f6;
+
+  --border: #e2e5ea;
+  --border-strong: #cbd1da;
+
+  --text-primary: #12161c;
+  --text-secondary: #5b6472;
+  --text-tertiary: #8b95a1;
+  --text-inverse: #ffffff;
+
+  --accent: #2f6fed;
+  --accent-hover: #2a63d4;
+  --accent-subtle: #e8f0fe;
+  --accent-text: #1d4ed8;
+
+  --success: #0f8a5f;
+  --success-subtle: #e3f5ed;
+  --warning: #b26a00;
+  --warning-subtle: #fdf1de;
+  --danger: #c92a2a;
+  --danger-hover: #b02121;
+  --danger-subtle: #fdeaea;
+
+  /* --- Elevation ---------------------------------------------------------
+     Layered shadows: a tight shadow for the contact edge, a wider one for
+     ambient light. A single blur reads flat. */
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 6%);
+  --shadow-md: 0 1px 3px rgb(16 24 40 / 8%), 0 4px 12px rgb(16 24 40 / 6%);
+  --shadow-lg: 0 2px 6px rgb(16 24 40 / 8%), 0 12px 32px rgb(16 24 40 / 12%);
+
+  /* --- Layout ------------------------------------------------------------ */
+  --sidebar-width: 232px;
+  --topbar-height: 56px;
+  --content-max: 1180px;
+
+  /* --- Motion ------------------------------------------------------------
+     Short and eased. Anything above ~200ms on a UI control reads as lag. */
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+  --duration-fast: 120ms;
+  --duration: 180ms;
+
+  /* --- Focus -------------------------------------------------------------
+     Section 24.3 requires a visible focus state. Defined once here so no
+     component can quietly drop it. */
+  --focus-ring: 0 0 0 2px var(--canvas), 0 0 0 4px var(--accent);
+}
+
+/**
+ * Dark theme.
+ *
+ * Applied by the OS preference, or forced by [data-theme] when the user picks
+ * one explicitly. Only tokens are redefined — no component rule is repeated.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --canvas: #0b0d10;
+    --surface: #14181d;
+    --surface-raised: #1a1f26;
+    --surface-sunken: #0f1216;
+    --surface-hover: #1d2229;
+
+    --border: #232a32;
+    --border-strong: #333c47;
+
+    --text-primary: #e6e9ed;
+    --text-secondary: #97a1ae;
+    --text-tertiary: #6b7684;
+    --text-inverse: #0b0d10;
+
+    --accent: #4d84f5;
+    --accent-hover: #6294f7;
+    --accent-subtle: #16233c;
+    --accent-text: #8fb3fa;
+
+    --success: #3ecf8e;
+    --success-subtle: #10281f;
+    --warning: #f6b73c;
+    --warning-subtle: #2b2013;
+    --danger: #f56565;
+    --danger-hover: #f87b7b;
+    --danger-subtle: #2c1618;
+
+    /* Shadows carry far less information on dark surfaces; borders do the
+       separating instead, so these stay subtle and lean on opacity. */
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+    --shadow-md: 0 1px 3px rgb(0 0 0 / 50%), 0 4px 12px rgb(0 0 0 / 30%);
+    --shadow-lg: 0 2px 6px rgb(0 0 0 / 50%), 0 12px 32px rgb(0 0 0 / 40%);
+  }
+}
+
+[data-theme='dark'] {
+  --canvas: #0b0d10;
+  --surface: #14181d;
+  --surface-raised: #1a1f26;
+  --surface-sunken: #0f1216;
+  --surface-hover: #1d2229;
+
+  --border: #232a32;
+  --border-strong: #333c47;
+
+  --text-primary: #e6e9ed;
+  --text-secondary: #97a1ae;
+  --text-tertiary: #6b7684;
+  --text-inverse: #0b0d10;
+
+  --accent: #4d84f5;
+  --accent-hover: #6294f7;
+  --accent-subtle: #16233c;
+  --accent-text: #8fb3fa;
+
+  --success: #3ecf8e;
+  --success-subtle: #10281f;
+  --warning: #f6b73c;
+  --warning-subtle: #2b2013;
+  --danger: #f56565;
+  --danger-hover: #f87b7b;
+  --danger-subtle: #2c1618;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-md: 0 1px 3px rgb(0 0 0 / 50%), 0 4px 12px rgb(0 0 0 / 30%);
+  --shadow-lg: 0 2px 6px rgb(0 0 0 / 50%), 0 12px 32px rgb(0 0 0 / 40%);
+}
