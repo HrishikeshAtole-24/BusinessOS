@@ -8,8 +8,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    // suppressHydrationWarning covers exactly one thing: browser extensions
+    // that mutate <html>/<body> before React hydrates. Grammarly adds
+    // data-gr-ext-installed, password managers add their own attributes, and
+    // the resulting mismatch is unfixable from our side because the server
+    // never saw those attributes.
+    //
+    // It suppresses only attribute diffs on THESE two elements and does not
+    // cascade to children, so real hydration bugs inside the app still surface.
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

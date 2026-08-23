@@ -9,6 +9,7 @@
  * import Prisma, Fastify or React — the moment it does, the boundary leaks.
  */
 
+export * from './auth.js';
 export * from './errors.js';
 export * from './pagination.js';
 export * from './permissions.js';

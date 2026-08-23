@@ -58,7 +58,9 @@ const envSchema = z.object({
   SESSION_COOKIE_NAME: z.string().default('businessos.sid'),
 
   // --- Observability ------------------------------------------------------
-  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  // 'silent' exists so the test reporter is readable; structured logs are the
+  // point in production and pure noise in a test run.
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   OTEL_SERVICE_NAME: z.string().default('businessos-api'),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().default(''),
 });

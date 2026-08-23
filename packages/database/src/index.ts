@@ -3,6 +3,7 @@ import { PrismaClient } from './generated/client.js';
 
 export * from './generated/client.js';
 export * from './generated/enums.js';
+export * from './provisioning.js';
 
 export interface CreatePrismaClientOptions {
   /**

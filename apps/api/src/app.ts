@@ -6,8 +6,12 @@ import Fastify, { LogController } from 'fastify';
 import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { redis } from './lib/redis.js';
+import { authPlugin } from './plugins/auth.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
 import { requestContextPlugin, resolveRequestId } from './plugins/request-context.js';
+import { authRoutes } from './modules/identity/auth.routes.js';
+import { invitationRoutes } from './modules/organization/invitation.routes.js';
+import { organizationRoutes } from './modules/organization/organization.routes.js';
 import { healthRoutes } from './routes/health.js';
 
 /**
@@ -17,13 +21,24 @@ import { healthRoutes } from './routes/health.js';
  * `app.inject()` and never bind a port (Section 20.1). `index.ts` owns process
  * concerns — listening, signals, shutdown — and nothing else.
  *
+ * `rateLimit` is opt-out for tests. The auth limiter allows 10 attempts per
+ * 5 minutes per IP+email, and a suite that logs in dozens of times legitimately
+ * trips it. Disabling it in tests is not weakening the tests — the limiter has
+ * its own dedicated test that builds an app with it enabled.
+ *
  * The return type is inferred rather than annotated as `FastifyInstance`.
  * Passing a custom `loggerInstance` specializes Fastify's logger generic, and a
  * bare `FastifyInstance` annotation would widen it back to `FastifyBaseLogger`
  * — which `exactOptionalPropertyTypes` correctly rejects. `App` below is the
  * name to use elsewhere.
  */
-export async function buildApp() {
+export interface BuildAppOptions {
+  /** Defaults to true. Tests disable it; see the note above. */
+  rateLimit?: boolean;
+}
+
+export async function buildApp(options: BuildAppOptions = {}) {
+  const rateLimitEnabled = options.rateLimit ?? true;
   const app = Fastify({
     loggerInstance: logger,
     genReqId: resolveRequestId,
@@ -72,23 +87,33 @@ export async function buildApp() {
   // Backed by Redis so the limit is global rather than per-instance; two API
   // pods with in-memory counters would grant double the intended budget.
   // Per-route limits for auth endpoints are set where those routes are defined.
-  await app.register(rateLimit, {
-    global: true,
-    max: 300,
-    timeWindow: '1 minute',
-    redis,
-    // Fail open. A Redis outage should not take down authentication; the
-    // readiness probe and alerts are the signal for that, not a 429 storm.
-    skipOnError: true,
-    keyGenerator: (request) => request.ip,
-  });
+  //
+  // Skipped entirely when disabled. Registering with `global: false` is NOT
+  // enough — the plugin still honours per-route `config.rateLimit`, which is
+  // exactly what the auth routes declare.
+  if (rateLimitEnabled) {
+    await app.register(rateLimit, {
+      global: true,
+      max: 300,
+      timeWindow: '1 minute',
+      redis,
+      // Fail open. A Redis outage should not take down authentication; the
+      // readiness probe and alerts are the signal for that, not a 429 storm.
+      skipOnError: true,
+      keyGenerator: (request) => request.ip,
+    });
+  }
 
   // --- Cross-cutting -------------------------------------------------------
   await app.register(requestContextPlugin);
   await app.register(errorHandlerPlugin);
+  await app.register(authPlugin);
 
   // --- Routes --------------------------------------------------------------
   await app.register(healthRoutes);
+  await app.register(authRoutes);
+  await app.register(organizationRoutes);
+  await app.register(invitationRoutes);
 
   app.get('/', async () => ({
     name: 'BusinessOS API',
