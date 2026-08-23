@@ -18,16 +18,25 @@ Section numbers throughout the code and ADRs refer to it.
 
 Early foundation. Nothing is deployable yet.
 
-|     |                                                             |
-| --- | ----------------------------------------------------------- |
-| ✅  | Monorepo, pnpm workspace + version catalogue                |
-| ✅  | Strict TypeScript presets                                   |
-| ✅  | Prisma schema — identity, tenancy, RBAC, invitations, audit |
-| ⬜  | First migration (needs a Neon connection string)            |
-| ⬜  | Fastify API, Next.js web, BullMQ worker                     |
-| ⬜  | Session auth, org creation, invitations                     |
-| ⬜  | Permission catalogue and seed                               |
-| ⬜  | CI                                                          |
+|     |                                                              |
+| --- | ------------------------------------------------------------ |
+| ✅  | Monorepo, pnpm workspace + version catalogue                 |
+| ✅  | Strict TypeScript presets                                    |
+| ✅  | Prisma schema — identity, tenancy, RBAC, invitations, audit  |
+| ✅  | First migration applied to Neon (PostgreSQL 18.6)            |
+| ✅  | Permission catalogue seeded — 46 permissions, 6 system roles |
+| ✅  | Fastify API — health checks, structured logs, error contract |
+| ✅  | BullMQ worker — 5 queues with retry and dead-letter policy   |
+| ✅  | Next.js 16 app — builds, renders live dependency status      |
+| ⬜  | Session auth, org creation, invitations                      |
+| ⬜  | Tenant-context middleware and permission guards              |
+| ⬜  | OpenAPI contract generation                                  |
+| ⬜  | CI                                                           |
+
+**Demo accounts** (after `pnpm db:seed`), password `BusinessOS!2026`:
+`owner@` · `hr@` · `manager@` · `finance@` · `employee@` — all `businessos.dev`.
+One per system role, so authorization can be exercised by hand: sign in as the
+employee and confirm the approvals path refuses you.
 
 Tracked against the 14-day plan in Section 39 of the report.
 
