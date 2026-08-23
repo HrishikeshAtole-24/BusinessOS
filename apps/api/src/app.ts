@@ -12,6 +12,8 @@ import { requestContextPlugin, resolveRequestId } from './plugins/request-contex
 import { authRoutes } from './modules/identity/auth.routes.js';
 import { invitationRoutes } from './modules/organization/invitation.routes.js';
 import { organizationRoutes } from './modules/organization/organization.routes.js';
+import { departmentRoutes } from './modules/people/department.routes.js';
+import { employeeRoutes } from './modules/people/employee.routes.js';
 import { healthRoutes } from './routes/health.js';
 
 /**
@@ -114,6 +116,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(authRoutes);
   await app.register(organizationRoutes);
   await app.register(invitationRoutes);
+  await app.register(departmentRoutes);
+  await app.register(employeeRoutes);
 
   app.get('/', async () => ({
     name: 'BusinessOS API',

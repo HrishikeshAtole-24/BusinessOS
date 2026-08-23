@@ -41,7 +41,8 @@ const NAVIGATION: NavGroup[] = [
     heading: 'People',
     items: [
       { href: '/members', label: 'Members', permission: 'member.read' },
-      { href: '/employees', label: 'Employees', permission: 'employee.read', planned: true },
+      { href: '/employees', label: 'Employees', permission: 'employee.read' },
+      { href: '/departments', label: 'Departments', permission: 'department.read' },
       {
         href: '/attendance',
         label: 'Attendance',

@@ -48,6 +48,7 @@ model User {
   sessions        Session[]
   auditLogs       AuditLog[]
   sentInvitations Invitation[] @relation("InvitationInviter")
+  employeeRecords Employee[]
 
   @@index([status])
   @@map("users")
@@ -117,6 +118,8 @@ model Organization {
   roles       Role[]
   invitations Invitation[]
   auditLogs   AuditLog[]
+  departments Department[]
+  employees   Employee[]
 
   @@index([status])
   @@map("organizations")
@@ -318,4 +321,134 @@ model AuditLog {
   @@index([organizationId, entityType, entityId, createdAt])
   @@index([organizationId, actorId, createdAt])
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// People (report Section 3.1, module "People")
+// ---------------------------------------------------------------------------
+
+/// A department. Self-referencing, so departments form a TREE per tenant:
+/// Engineering -> Backend -> Payments.
+///
+/// Section 26.1 lists "Org hierarchy — Tree — adjacency map + DFS/BFS for
+/// reporting chains". `parentId` is that adjacency edge. The cycle guard lives
+/// in the service layer, because a foreign key cannot express "must not be my
+/// own ancestor".
+model Department {
+  id             String  @id @default(uuid(7)) @db.Uuid
+  organizationId String  @map("organization_id") @db.Uuid
+  name           String  @db.VarChar(120)
+  /// Tenant-local short code, e.g. "ENG". Used in employee codes and reports.
+  code           String  @db.VarChar(16)
+  description    String? @db.VarChar(255)
+
+  /// Null for a top-level department. The tree root set is every row with no parent.
+  parentId String? @map("parent_id") @db.Uuid
+  /// Department head. Nullable: a department can exist before it has one.
+  headId   String? @map("head_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// onDelete: Restrict — deleting a department with children would orphan a
+  /// whole subtree. The API requires it be emptied or re-parented first.
+  parent       Department?  @relation("DepartmentTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children     Department[] @relation("DepartmentTree")
+  head         Employee?    @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
+  employees    Employee[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, parentId])
+  @@index([organizationId, name])
+  @@map("departments")
+}
+
+/// An employee record.
+///
+/// Deliberately separate from `User`. A User is a login; an Employee is a
+/// person the company employs. They are not the same thing: a contractor may
+/// have a login and no employee record, and someone hired next month has an
+/// employee record before their account exists. `userId` is nullable and
+/// unique, linking the two when both are present.
+model Employee {
+  id             String  @id @default(uuid(7)) @db.Uuid
+  organizationId String  @map("organization_id") @db.Uuid
+  /// Optional link to a login. Null until the person is invited and accepts.
+  userId         String? @map("user_id") @db.Uuid
+
+  /// Tenant-local identifier, e.g. "ENG-014".
+  employeeCode String @map("employee_code") @db.VarChar(24)
+
+  firstName     String  @map("first_name") @db.VarChar(60)
+  lastName      String  @map("last_name") @db.VarChar(60)
+  workEmail     String  @map("work_email") @db.VarChar(320)
+  personalEmail String? @map("personal_email") @db.VarChar(320)
+  phone         String? @db.VarChar(24)
+
+  designation    String           @db.VarChar(120)
+  employmentType EmploymentType   @default(FULL_TIME) @map("employment_type")
+  status         EmploymentStatus @default(ACTIVE)
+  workMode       WorkMode         @default(OFFICE) @map("work_mode")
+  location       String?          @db.VarChar(120)
+
+  joinedOn DateTime  @map("joined_on") @db.Date
+  exitedOn DateTime? @map("exited_on") @db.Date
+
+  departmentId String? @map("department_id") @db.Uuid
+  /// Reporting line. Self-referencing, so managers form a TREE and a chain to
+  /// the top can be walked. Cycle prevention is enforced in the service layer.
+  managerId    String? @map("manager_id") @db.Uuid
+
+  /// Optimistic concurrency (Section 11.2): two HR users editing one profile.
+  version Int @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user              User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  department        Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  /// SetNull, not Cascade: a manager leaving must not delete their reports.
+  manager           Employee?    @relation("ReportingLine", fields: [managerId], references: [id], onDelete: SetNull)
+  reports           Employee[]   @relation("ReportingLine")
+  headedDepartments Department[] @relation("DepartmentHead")
+
+  @@unique([organizationId, employeeCode])
+  @@unique([organizationId, workEmail])
+  /// One employee record per login, per tenant.
+  @@unique([organizationId, userId])
+  /// "List active employees in this org" — the directory query.
+  @@index([organizationId, status])
+  @@index([organizationId, departmentId])
+  /// "Who reports to this manager?" — walked repeatedly by the tree traversal.
+  @@index([organizationId, managerId])
+  @@map("employees")
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERN
+  CONSULTANT
+
+  @@map("employment_type")
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  ON_NOTICE
+  ON_LEAVE
+  EXITED
+
+  @@map("employment_status")
+}
+
+enum WorkMode {
+  OFFICE
+  REMOTE
+  HYBRID
+
+  @@map("work_mode")
 }

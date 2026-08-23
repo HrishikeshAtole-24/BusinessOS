@@ -25,6 +25,13 @@ export type AuditAction =
   | 'membership.role_assigned'
   | 'membership.suspended'
   | 'membership.removed'
+  // people
+  | 'department.created'
+  | 'department.updated'
+  | 'department.deleted'
+  | 'employee.created'
+  | 'employee.updated'
+  | 'employee.exited'
   // invitations
   | 'invitation.sent'
   | 'invitation.accepted'
