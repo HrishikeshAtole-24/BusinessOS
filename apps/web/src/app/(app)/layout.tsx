@@ -1,14 +1,14 @@
 import { Sidebar } from '../../components/Sidebar';
-import { UserMenu } from '../../components/UserMenu';
+import { Topbar } from '../../components/Topbar';
 import { initials, requireSession } from '../../lib/session';
 
 /**
  * Authenticated application shell.
  *
  * A Server Component: it resolves the session once and passes only what each
- * child needs. The permission list reaches the sidebar as a plain array of
- * strings rather than a client-side fetch, so navigation renders correctly on
- * the first paint with no flash of the wrong menu.
+ * child needs. Permissions reach the sidebar as a plain string array rather
+ * than a client-side fetch, so navigation is correct on first paint with no
+ * flash of the wrong menu.
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
@@ -20,23 +20,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         Skip to content
       </a>
 
-      <Sidebar permissions={session.permissions} organizationName={session.organization!.name} />
+      <Sidebar permissions={session.permissions} />
 
-      <header className="topbar">
-        <span className="org-chip">
-          <span className="dot dot-ok" aria-hidden="true" />
-          {session.organization!.name}
-        </span>
-
-        <div className="topbar-actions">
-          <UserMenu
-            name={session.user.name}
-            email={session.user.email}
-            initials={initials(session.user.name)}
-            roles={session.roles}
-          />
-        </div>
-      </header>
+      <Topbar
+        organization={session.organization!}
+        memberships={session.memberships}
+        user={session.user}
+        initials={initials(session.user.name)}
+        roles={session.roles}
+      />
 
       <main className="main" id="main">
         {children}

@@ -393,3 +393,34 @@
 .nums {
   font-variant-numeric: tabular-nums;
 }
+
+/* --- Split layout ---------------------------------------------------------
+   Two columns on wide screens, stacked below. `auto-fit` with a min track
+   means no media query is needed: the browser drops to one column when the
+   tracks can no longer meet their minimum. */
+
+.split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+/* --- Meter ----------------------------------------------------------------
+   A proportion bar. role="meter" plus aria-valuenow/min/max in the markup, so
+   a screen reader reads the value rather than announcing a decorative div. */
+
+.meter {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  transition: width var(--duration) var(--ease);
+}

@@ -82,10 +82,9 @@ const NAVIGATION: NavGroup[] = [
 
 interface SidebarProps {
   permissions: string[];
-  organizationName: string;
 }
 
-export function Sidebar({ permissions, organizationName }: SidebarProps) {
+export function Sidebar({ permissions }: SidebarProps) {
   const pathname = usePathname();
   // A Set, because this is checked once per link on every render.
   const granted = new Set(permissions);
@@ -144,15 +143,13 @@ export function Sidebar({ permissions, organizationName }: SidebarProps) {
       </nav>
 
       <div className="sidebar-footer">
-        <Link className="nav-link" href="/settings">
+        <Link
+          className="nav-link"
+          href="/settings"
+          aria-current={pathname === '/settings' ? 'page' : undefined}
+        >
           Settings
         </Link>
-        <div
-          className="subtle"
-          style={{ fontSize: 'var(--text-xs)', padding: 'var(--space-2) var(--space-3) 0' }}
-        >
-          {organizationName}
-        </div>
       </div>
     </aside>
   );

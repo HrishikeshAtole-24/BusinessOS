@@ -2,26 +2,31 @@
  * Application shell — sidebar, topbar, content area.
  *
  * CSS Grid for the shell, Flexbox inside each region. Grid handles
- * two-dimensional structure; Flex handles one-dimensional runs. Using the right
- * one keeps both simple.
+ * two-dimensional structure; Flex handles one-dimensional runs.
+ *
+ * ONE scroll region. The shell is exactly viewport height with
+ * `overflow: hidden`, and only `.main` scrolls. The earlier version gave the
+ * sidebar `height: 100dvh` inside a `min-height: 100dvh` grid, which produced
+ * two competing scrollbars and let the sidebar clip its own last item.
  */
 
 .shell {
   display: grid;
-  /* Named areas make the intent readable without counting track numbers. */
   grid-template-areas:
     'sidebar topbar'
     'sidebar main';
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   grid-template-rows: var(--topbar-height) minmax(0, 1fr);
-  /* dvh, not vh: on mobile browsers vh includes the collapsing address bar,
-     which leaves a scrollbar that should not exist. */
-  min-height: 100dvh;
+  /* Fixed height, not min-height: the shell IS the viewport, and the regions
+     inside it decide what scrolls. dvh rather than vh so a mobile address bar
+     collapsing does not leave a phantom scrollbar. */
+  height: 100dvh;
+  overflow: hidden;
 }
 
-/* `minmax(0, 1fr)` above rather than `1fr`: a grid item defaults to
-   min-width:auto, so one wide table would push the whole layout sideways
-   instead of scrolling inside its own container. */
+/* `minmax(0, 1fr)` on both axes: a grid item defaults to min-width/height auto,
+   so one wide table or a long page would stretch the track instead of
+   scrolling inside it. */
 
 /* --- Sidebar -------------------------------------------------------------- */
 
@@ -31,10 +36,9 @@
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  position: sticky;
-  top: 0;
-  height: 100dvh;
-  overflow-y: auto;
+  /* No height and no sticky: the grid track already bounds it. */
+  min-height: 0;
+  overflow: hidden;
 }
 
 .sidebar-brand {
@@ -65,14 +69,24 @@
   color: #fff;
   font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
+  flex-shrink: 0;
 }
 
+/* The only scrollable part of the sidebar, and only when it needs to be.
+   `min-height: 0` is what actually allows a flex child to shrink below its
+   content size — without it the nav pushes the footer out of view, which is
+   exactly what was clipping "Audit log". */
 .sidebar-nav {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   padding: var(--space-4) var(--space-2);
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+  /* Thin scrollbar so the nav does not jump when it appears. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }
 
 .nav-group {
@@ -120,16 +134,21 @@
   font-weight: var(--weight-medium);
 }
 
-/* A link the current role cannot use. Shown rather than hidden so the product
-   surface stays legible, but clearly inert and removed from the tab order. */
+/* A link the current role cannot use, or one not built yet. Shown rather than
+   hidden so the product surface stays legible, but inert and out of tab order. */
 .nav-link[data-locked='true'] {
-  opacity: 0.4;
-  cursor: not-allowed;
+  opacity: 0.45;
+  cursor: default;
   pointer-events: none;
 }
 
+.nav-link[data-locked='true'] .badge {
+  font-size: 10px;
+  padding: 1px 6px;
+}
+
 .sidebar-footer {
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-3);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -140,46 +159,164 @@
   grid-area: topbar;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-4);
   padding: 0 var(--space-5);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  min-width: 0;
 }
 
-.topbar-title {
-  font-size: var(--text-md);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-tight);
+.topbar-search {
+  flex: 1 1 auto;
+  max-width: 420px;
+  min-width: 0;
+  position: relative;
+}
+
+.topbar-search .input {
+  height: 32px;
+  background: var(--surface-sunken);
+  padding-left: var(--space-6);
+}
+
+.topbar-search-icon {
+  position: absolute;
+  left: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+  display: flex;
 }
 
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
-.org-chip {
+/* --- Icon button ---------------------------------------------------------- */
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  position: relative;
+  transition: background-color var(--duration-fast) var(--ease);
+}
+
+.icon-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.icon-btn-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--danger);
+  border: 1.5px solid var(--surface);
+}
+
+/* --- Org switcher --------------------------------------------------------- */
+
+.org-switcher {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.org-trigger {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--border);
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
+  border: 1px solid var(--border);
   background: var(--surface-sunken);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  max-width: 200px;
+  transition: background-color var(--duration-fast) var(--ease);
+}
+
+.org-trigger:hover {
+  background: var(--surface-hover);
+}
+
+.org-trigger-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  min-width: 240px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-1);
+  z-index: 50;
+}
+
+.menu-label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+  padding: var(--space-2) var(--space-3);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  text-align: left;
+  transition: background-color var(--duration-fast) var(--ease);
+}
+
+.menu-item:hover {
+  background: var(--surface-hover);
+  text-decoration: none;
+}
+
+.menu-item[aria-current='true'] {
+  color: var(--accent-text);
+  font-weight: var(--weight-medium);
+}
+
+.menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: var(--space-1) 0;
 }
 
 /* --- Main ----------------------------------------------------------------- */
 
+/* The single scroll container for the whole app. */
 .main {
   grid-area: main;
-  padding: var(--space-6) var(--space-5);
+  min-height: 0;
+  overflow-y: auto;
   overflow-x: hidden;
+  padding: var(--space-6) var(--space-5) var(--space-8);
 }
 
 .page {
@@ -277,29 +414,34 @@
 
 /* --- Responsive -----------------------------------------------------------
    One breakpoint. The shell collapses to a single column and the sidebar
-   becomes a horizontal strip. More breakpoints would be more surface to keep
-   correct for no benefit at this size. */
+   becomes a horizontal strip. */
 
 @media (max-width: 860px) {
   .shell {
     grid-template-areas:
-      'sidebar'
       'topbar'
+      'sidebar'
       'main';
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto var(--topbar-height) minmax(0, 1fr);
+    grid-template-rows: var(--topbar-height) auto minmax(0, 1fr);
   }
 
   .sidebar {
-    position: static;
-    height: auto;
     border-right: 0;
     border-bottom: 1px solid var(--border);
+    overflow: visible;
+  }
+
+  /* The brand already appears in the topbar on small screens. */
+  .sidebar-brand,
+  .sidebar-footer {
+    display: none;
   }
 
   .sidebar-nav {
     flex-direction: row;
     overflow-x: auto;
+    overflow-y: hidden;
     gap: var(--space-4);
     padding: var(--space-2) var(--space-3);
   }
@@ -319,11 +461,16 @@
     white-space: nowrap;
   }
 
-  .sidebar-footer {
+  /* Not-built links waste horizontal space on a phone. */
+  .nav-link[data-locked='true'] {
+    display: none;
+  }
+
+  .topbar-search {
     display: none;
   }
 
   .main {
-    padding: var(--space-5) var(--space-4);
+    padding: var(--space-5) var(--space-4) var(--space-7);
   }
 }
