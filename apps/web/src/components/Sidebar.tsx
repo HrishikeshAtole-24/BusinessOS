@@ -55,7 +55,7 @@ const NAVIGATION: NavGroup[] = [
   {
     heading: 'Work',
     items: [
-      { href: '/projects', label: 'Projects', permission: 'project.read', planned: true },
+      { href: '/projects', label: 'Projects', permission: 'project.read' },
       { href: '/tasks', label: 'Tasks', permission: 'task.read', planned: true },
       {
         href: '/timesheets',

@@ -13,4 +13,5 @@ export * from './auth.js';
 export * from './errors.js';
 export * from './pagination.js';
 export * from './people.js';
+export * from './work.js';
 export * from './permissions.js';

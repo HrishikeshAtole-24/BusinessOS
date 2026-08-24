@@ -14,6 +14,8 @@ import { invitationRoutes } from './modules/organization/invitation.routes.js';
 import { organizationRoutes } from './modules/organization/organization.routes.js';
 import { departmentRoutes } from './modules/people/department.routes.js';
 import { employeeRoutes } from './modules/people/employee.routes.js';
+import { projectRoutes } from './modules/work/project.routes.js';
+import { taskRoutes } from './modules/work/task.routes.js';
 import { healthRoutes } from './routes/health.js';
 
 /**
@@ -118,6 +120,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(invitationRoutes);
   await app.register(departmentRoutes);
   await app.register(employeeRoutes);
+  await app.register(projectRoutes);
+  await app.register(taskRoutes);
 
   app.get('/', async () => ({
     name: 'BusinessOS API',

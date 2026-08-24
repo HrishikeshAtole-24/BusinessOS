@@ -32,6 +32,13 @@ export type AuditAction =
   | 'employee.created'
   | 'employee.updated'
   | 'employee.exited'
+  // work
+  | 'project.created'
+  | 'project.updated'
+  | 'task.created'
+  | 'task.updated'
+  | 'task.status_changed'
+  | 'task.dependency_added'
   // invitations
   | 'invitation.sent'
   | 'invitation.accepted'

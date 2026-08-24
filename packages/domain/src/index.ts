@@ -7,7 +7,9 @@
  * it imports neither Fastify nor Prisma.
  */
 
+export * from './graph.js';
 export * from './hierarchy.js';
 export * from './password.js';
+export * from './state-machine.js';
 export * from './slug.js';
 export * from './tokens.js';
