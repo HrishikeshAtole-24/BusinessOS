@@ -49,7 +49,7 @@ const NAVIGATION: NavGroup[] = [
         permission: 'attendance.read_self',
         planned: true,
       },
-      { href: '/leave', label: 'Leave', permission: 'leave.read_self', planned: true },
+      { href: '/leave', label: 'Leave', permission: 'leave.read_self' },
     ],
   },
   {
@@ -68,8 +68,8 @@ const NAVIGATION: NavGroup[] = [
   {
     heading: 'Finance',
     items: [
-      { href: '/expenses', label: 'Expenses', permission: 'expense.read_self', planned: true },
-      { href: '/approvals', label: 'Approvals', permission: 'approval.read', planned: true },
+      { href: '/expenses', label: 'Expenses', permission: 'expense.read_self' },
+      { href: '/approvals', label: 'Approvals', permission: 'approval.read' },
     ],
   },
   {
