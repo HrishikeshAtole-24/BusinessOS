@@ -1,5 +1,6 @@
 import { Sidebar } from '../../components/Sidebar';
 import { Topbar } from '../../components/Topbar';
+import { apiFetchOrNull } from '../../lib/api';
 import { initials, requireSession } from '../../lib/session';
 
 /**
@@ -12,6 +13,9 @@ import { initials, requireSession } from '../../lib/session';
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
+  // Server-rendered so the bell badge is correct on first paint rather than
+  // popping in after a client fetch.
+  const notifications = await apiFetchOrNull<{ unread: number }>('/v1/notifications/unread-count');
 
   return (
     <div className="shell">
@@ -28,6 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         user={session.user}
         initials={initials(session.user.name)}
         roles={session.roles}
+        unreadNotifications={notifications?.unread ?? 0}
       />
 
       <main className="main" id="main">

@@ -3,15 +3,15 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { API_URL } from '../lib/config';
+import { NotificationBell } from './NotificationBell';
 import { OrgSwitcher } from './OrgSwitcher';
 
 /**
  * Topbar: search, notifications, organization switcher, account menu.
  *
- * Search and notifications are present but inert until the modules that back
- * them exist (Sections 16 and 15.2). They are marked as such rather than
- * hidden — the `⌘K` affordance is worth teaching before the feature lands, and
- * a disabled control is honest where a missing one is confusing.
+ * Search is present but inert until global search exists (Section 16.2). It is
+ * disabled and labelled rather than hidden, because a missing control is more
+ * confusing than one that says why it does nothing.
  */
 
 interface Organization {
@@ -26,9 +26,17 @@ interface TopbarProps {
   user: { name: string; email: string };
   initials: string;
   roles: string[];
+  unreadNotifications: number;
 }
 
-export function Topbar({ organization, memberships, user, initials, roles }: TopbarProps) {
+export function Topbar({
+  organization,
+  memberships,
+  user,
+  initials,
+  roles,
+  unreadNotifications,
+}: TopbarProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -82,15 +90,7 @@ export function Topbar({ organization, memberships, user, initials, roles }: Top
       </div>
 
       <div className="topbar-actions">
-        <button
-          type="button"
-          className="icon-btn"
-          aria-label="Notifications (not yet available)"
-          title="Notifications arrive with the events module"
-          disabled
-        >
-          <BellIcon />
-        </button>
+        <NotificationBell initialUnread={unreadNotifications} />
 
         <OrgSwitcher current={organization} memberships={memberships} />
 
@@ -147,20 +147,6 @@ function SearchIcon() {
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
       <circle cx="6" cy="6" r="4.25" stroke="currentColor" strokeWidth="1.5" />
       <path d="M9.5 9.5 12.5 12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function BellIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path
-        d="M8 2a4 4 0 0 0-4 4v2.5L2.75 10.5h10.5L12 8.5V6a4 4 0 0 0-4-4Z"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinejoin="round"
-      />
-      <path d="M6.25 12.5a1.75 1.75 0 0 0 3.5 0" stroke="currentColor" strokeWidth="1.3" />
     </svg>
   );
 }

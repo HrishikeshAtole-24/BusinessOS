@@ -19,6 +19,8 @@ import { taskRoutes } from './modules/work/task.routes.js';
 import { approvalRoutes } from './modules/workflow/approval.routes.js';
 import { expenseRoutes } from './modules/finance/expense.routes.js';
 import { leaveRoutes } from './modules/people/leave.routes.js';
+import { attendanceRoutes } from './modules/people/attendance.routes.js';
+import { notificationRoutes } from './modules/platform/notification.routes.js';
 import { healthRoutes } from './routes/health.js';
 
 /**
@@ -128,6 +130,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(approvalRoutes);
   await app.register(expenseRoutes);
   await app.register(leaveRoutes);
+  await app.register(attendanceRoutes);
+  await app.register(notificationRoutes);
 
   app.get('/', async () => ({
     name: 'BusinessOS API',

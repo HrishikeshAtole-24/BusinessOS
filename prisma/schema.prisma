@@ -44,13 +44,15 @@ model User {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  memberships       Membership[]
-  sessions          Session[]
-  auditLogs         AuditLog[]
-  sentInvitations   Invitation[]   @relation("InvitationInviter")
-  employeeRecords   Employee[]
-  taskComments      TaskComment[]
-  approvalDecisions ApprovalStep[]
+  memberships           Membership[]
+  sessions              Session[]
+  auditLogs             AuditLog[]
+  sentInvitations       Invitation[]        @relation("InvitationInviter")
+  employeeRecords       Employee[]
+  taskComments          TaskComment[]
+  approvalDecisions     ApprovalStep[]
+  attendanceCorrections AttendanceSession[] @relation("AttendanceCorrector")
+  notifications         Notification[]
 
   @@index([status])
   @@map("users")
@@ -116,21 +118,23 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  memberships       Membership[]
-  roles             Role[]
-  invitations       Invitation[]
-  auditLogs         AuditLog[]
-  departments       Department[]
-  employees         Employee[]
-  projects          Project[]
-  tasks             Task[]
-  approvalPolicies  ApprovalPolicy[]
-  approvalRequests  ApprovalRequest[]
-  leaveTypes        LeaveType[]
-  leaveBalances     LeaveBalance[]
-  leaveRequests     LeaveRequest[]
-  expenseCategories ExpenseCategory[]
-  expenses          Expense[]
+  memberships        Membership[]
+  roles              Role[]
+  invitations        Invitation[]
+  auditLogs          AuditLog[]
+  departments        Department[]
+  employees          Employee[]
+  projects           Project[]
+  tasks              Task[]
+  approvalPolicies   ApprovalPolicy[]
+  approvalRequests   ApprovalRequest[]
+  leaveTypes         LeaveType[]
+  leaveBalances      LeaveBalance[]
+  leaveRequests      LeaveRequest[]
+  expenseCategories  ExpenseCategory[]
+  expenses           Expense[]
+  attendanceSessions AttendanceSession[]
+  notifications      Notification[]
 
   @@index([status])
   @@map("organizations")
@@ -434,6 +438,7 @@ model Employee {
   leaveBalances       LeaveBalance[]
   leaveRequests       LeaveRequest[]
   expenses            Expense[]
+  attendanceSessions  AttendanceSession[]
 
   @@unique([organizationId, employeeCode])
   @@unique([organizationId, workEmail])
@@ -994,4 +999,132 @@ enum ExpenseStatus {
   REIMBURSED
 
   @@map("expense_status")
+}
+
+// ---------------------------------------------------------------------------
+// Attendance (report Section 3.1) — intervals, not timestamps
+// ---------------------------------------------------------------------------
+
+/// One work session: a clock-in and, eventually, a clock-out.
+///
+/// A day can hold several — a split shift, or a correction after someone forgot
+/// to clock out. That is exactly why hours are computed by merging intervals
+/// rather than subtracting one pair of timestamps.
+model AttendanceSession {
+  id             String @id @default(uuid(7)) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  employeeId     String @map("employee_id") @db.Uuid
+
+  /// The working day this belongs to. Stored separately from `checkInAt`
+  /// because a night shift starting 23:30 belongs to the day it started, and
+  /// deriving it from the timestamp would file it under the wrong date.
+  workDate DateTime @map("work_date") @db.Date
+
+  checkInAt  DateTime  @map("check_in_at") @db.Timestamptz(3)
+  /// Null while the session is open.
+  checkOutAt DateTime? @map("check_out_at") @db.Timestamptz(3)
+
+  source AttendanceSource @default(WEB)
+  notes  String?          @db.VarChar(500)
+
+  /// Set when someone edits a closed session. Section 8.4: a completed session
+  /// is never silently modified — a correction is auditable.
+  correctedAt   DateTime? @map("corrected_at") @db.Timestamptz(3)
+  correctedById String?   @map("corrected_by_id") @db.Uuid
+
+  version Int @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  correctedBy  User?             @relation("AttendanceCorrector", fields: [correctedById], references: [id], onDelete: SetNull)
+  breaks       AttendanceBreak[]
+
+  /// "This employee's day" — the query behind every summary.
+  @@index([organizationId, employeeId, workDate])
+  /// Finding the open session on clock-out, and the org-wide "who is in" view.
+  @@index([organizationId, checkOutAt])
+  @@map("attendance_sessions")
+}
+
+enum AttendanceSource {
+  WEB
+  MOBILE
+  BIOMETRIC
+  /// Entered by HR on someone's behalf.
+  MANUAL
+
+  @@map("attendance_source")
+}
+
+/// A break nested inside a session. Subtracted from worked time.
+model AttendanceBreak {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  sessionId String    @map("session_id") @db.Uuid
+  startAt   DateTime  @map("start_at") @db.Timestamptz(3)
+  /// Null while the break is running.
+  endAt     DateTime? @map("end_at") @db.Timestamptz(3)
+  reason    String?   @db.VarChar(120)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  session AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("attendance_breaks")
+}
+
+// ---------------------------------------------------------------------------
+// Notifications (report Section 3.1, module "Notifications")
+// ---------------------------------------------------------------------------
+
+/// An in-app notification.
+///
+/// Delivery to email and push runs through BullMQ (Section 15.2); this row is
+/// the in-app record and the source of the unread count.
+model Notification {
+  id             String @id @default(uuid(7)) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  /// The USER, not the employee: notifications go to an account that signs in.
+  recipientId    String @map("recipient_id") @db.Uuid
+
+  type     String               @db.VarChar(60)
+  priority NotificationPriority @default(NORMAL)
+  title    String               @db.VarChar(200)
+  body     String?              @db.VarChar(1000)
+
+  /// What it is about, so the UI can link straight to it.
+  entityType String? @map("entity_type") @db.VarChar(60)
+  entityId   String? @map("entity_id") @db.Uuid
+  /// Relative path in the web app.
+  link       String? @db.VarChar(255)
+
+  readAt DateTime? @map("read_at") @db.Timestamptz(3)
+
+  /// Deduplication key (Section 26.1, "Deduplication | Hashing").
+  /// At-least-once queue delivery means a job can run twice; a unique key makes
+  /// the second insert a no-op instead of a duplicate in someone's bell.
+  dedupeKey String? @map("dedupe_key") @db.VarChar(200)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  recipient    User         @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([recipientId, dedupeKey])
+  /// "My unread notifications, newest first" — the bell query.
+  @@index([recipientId, readAt, createdAt])
+  @@index([organizationId, createdAt])
+  @@map("notifications")
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+
+  @@map("notification_priority")
 }

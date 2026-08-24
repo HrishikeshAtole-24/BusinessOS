@@ -43,12 +43,7 @@ const NAVIGATION: NavGroup[] = [
       { href: '/members', label: 'Members', permission: 'member.read' },
       { href: '/employees', label: 'Employees', permission: 'employee.read' },
       { href: '/departments', label: 'Departments', permission: 'department.read' },
-      {
-        href: '/attendance',
-        label: 'Attendance',
-        permission: 'attendance.read_self',
-        planned: true,
-      },
+      { href: '/attendance', label: 'Attendance', permission: 'attendance.read_self' },
       { href: '/leave', label: 'Leave', permission: 'leave.read_self' },
     ],
   },

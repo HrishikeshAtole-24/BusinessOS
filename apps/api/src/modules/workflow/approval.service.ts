@@ -7,6 +7,7 @@ import {
   type PolicyStepDefinition,
 } from '@businessos/domain';
 import { record } from '../../lib/audit.js';
+import { approverUserIds, notify } from '../platform/notification.service.js';
 
 /**
  * The approval engine — report Section 13.
@@ -148,6 +149,32 @@ export async function submitForApproval(
     requestId: input.requestId,
   });
 
+  /**
+   * Tell the first approver, in the same transaction as the request itself.
+   * An approval that committed always has its notification; queuing it after
+   * commit would open a window where a live request is invisible to whoever
+   * has to act on it.
+   */
+  if (pending) {
+    await notify(tx, {
+      organizationId: input.organizationId,
+      recipientIds: await approverUserIds(tx, input.organizationId, {
+        approverEmployeeId: pending.approverEmployeeId,
+        approverRoleKey: pending.approverRoleKey,
+      }),
+      type: 'approval.requested',
+      priority: 'HIGH',
+      title: `${input.entityType === 'EXPENSE' ? 'Expense' : 'Leave'} approval needed`,
+      body: `${pending.name} step is waiting on you.`,
+      entityType: 'approval_request',
+      entityId: approval.id,
+      link: '/approvals',
+      // Same request, same step, same person -> one notification however many
+      // times the submit is retried.
+      dedupeOn: `approval:${approval.id}:step:${pending.sequence}`,
+    });
+  }
+
   return {
     approvalRequestId: approval.id,
     status,
@@ -286,6 +313,44 @@ export async function decide(
     ipAddress: input.ipAddress ?? null,
     requestId: input.requestId,
   });
+
+  if (next) {
+    await notify(tx, {
+      organizationId: input.organizationId,
+      recipientIds: await approverUserIds(tx, input.organizationId, {
+        approverEmployeeId: next.approverEmployeeId,
+        approverRoleKey: next.approverRoleKey,
+      }),
+      type: 'approval.requested',
+      priority: 'HIGH',
+      title: `${request.entityType === 'EXPENSE' ? 'Expense' : 'Leave'} approval needed`,
+      body: `${next.name} step is waiting on you.`,
+      entityType: 'approval_request',
+      entityId: request.id,
+      link: '/approvals',
+      dedupeOn: `approval:${request.id}:step:${next.sequence}`,
+    });
+  } else {
+    // Resolved: tell the person who asked.
+    const requester = await tx.employee.findUnique({
+      where: { id: request.requesterId },
+      select: { userId: true },
+    });
+    if (requester?.userId) {
+      await notify(tx, {
+        organizationId: input.organizationId,
+        recipientIds: [requester.userId],
+        type: `approval.${outcome.toLowerCase()}`,
+        priority: outcome === 'REJECTED' ? 'HIGH' : 'NORMAL',
+        title: `Your ${request.entityType.toLowerCase()} was ${outcome.toLowerCase()}`,
+        ...(input.comment ? { body: input.comment } : {}),
+        entityType: 'approval_request',
+        entityId: request.id,
+        link: request.entityType === 'EXPENSE' ? '/expenses' : '/leave',
+        dedupeOn: `approval:${request.id}:outcome`,
+      });
+    }
+  }
 
   return {
     requestStatus: outcome,

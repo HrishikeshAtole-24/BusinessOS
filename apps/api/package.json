@@ -20,6 +20,7 @@
     "@fastify/helmet": "catalog:",
     "@fastify/rate-limit": "catalog:",
     "@prisma/client": "7.9.1",
+    "bullmq": "catalog:",
     "dotenv": "^17.4.2",
     "fastify": "catalog:",
     "fastify-plugin": "^6.0.0",

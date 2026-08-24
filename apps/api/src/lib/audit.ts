@@ -47,6 +47,9 @@ export type AuditAction =
   | 'expense.updated'
   | 'expense.reimbursed'
   | 'leave.cancelled'
+  // attendance
+  | 'attendance.checked_out'
+  | 'attendance.corrected'
   // invitations
   | 'invitation.sent'
   | 'invitation.accepted'
