@@ -21,6 +21,7 @@ import { expenseRoutes } from './modules/finance/expense.routes.js';
 import { leaveRoutes } from './modules/people/leave.routes.js';
 import { attendanceRoutes } from './modules/people/attendance.routes.js';
 import { notificationRoutes } from './modules/platform/notification.routes.js';
+import { analyticsRoutes } from './modules/analytics/analytics.routes.js';
 import { healthRoutes } from './routes/health.js';
 
 /**
@@ -132,6 +133,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(leaveRoutes);
   await app.register(attendanceRoutes);
   await app.register(notificationRoutes);
+  await app.register(analyticsRoutes);
 
   app.get('/', async () => ({
     name: 'BusinessOS API',

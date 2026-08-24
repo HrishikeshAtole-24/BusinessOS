@@ -71,7 +71,7 @@ const NAVIGATION: NavGroup[] = [
     heading: 'Operations',
     items: [
       { href: '/audit', label: 'Audit log', permission: 'audit.read', planned: true },
-      { href: '/analytics', label: 'Analytics', permission: 'analytics.read', planned: true },
+      { href: '/analytics', label: 'Analytics', permission: 'analytics.read' },
     ],
   },
 ];

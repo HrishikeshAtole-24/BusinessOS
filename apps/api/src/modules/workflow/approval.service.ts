@@ -7,6 +7,7 @@ import {
   type PolicyStepDefinition,
 } from '@businessos/domain';
 import { record } from '../../lib/audit.js';
+import { publish } from '../../lib/outbox.js';
 import { approverUserIds, notify } from '../platform/notification.service.js';
 
 /**
@@ -172,6 +173,25 @@ export async function submitForApproval(
       // Same request, same step, same person -> one notification however many
       // times the submit is retried.
       dedupeOn: `approval:${approval.id}:step:${pending.sequence}`,
+    });
+
+    // The email side goes through the outbox, in THIS transaction. Enqueueing
+    // after commit could lose it on a crash; enqueueing inside a transaction
+    // that later rolls back would announce something that never happened.
+    await publish(tx, {
+      organizationId: input.organizationId,
+      type: 'approval.requested',
+      aggregateType: 'approval_request',
+      aggregateId: approval.id,
+      payload: {
+        entityType: input.entityType,
+        entityId: input.entityId,
+        step: pending.name,
+        sequence: pending.sequence,
+        amount: input.amount ?? null,
+        currency: input.currency ?? null,
+      },
+      requestId: input.requestId,
     });
   }
 
@@ -350,6 +370,20 @@ export async function decide(
         dedupeOn: `approval:${request.id}:outcome`,
       });
     }
+
+    await publish(tx, {
+      organizationId: input.organizationId,
+      type: 'approval.resolved',
+      aggregateType: 'approval_request',
+      aggregateId: request.id,
+      payload: {
+        outcome,
+        entityType: request.entityType,
+        entityId: request.entityId,
+        requesterId: request.requesterId,
+      },
+      requestId: input.requestId,
+    });
   }
 
   return {

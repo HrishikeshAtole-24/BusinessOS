@@ -5,7 +5,9 @@ import { Worker, type Job } from 'bullmq';
 import { Redis } from 'ioredis';
 import { pino } from 'pino';
 import { createPrismaClient } from '@businessos/database';
+import { Queue } from 'bullmq';
 import { QUEUE_NAMES, QUEUE_POLICIES, type QueueName } from './queues.js';
+import { startDrainer } from './outbox-drainer.js';
 
 loadDotenv({
   path: resolve(dirname(fileURLToPath(import.meta.url)), '../../../.env'),
@@ -104,8 +106,21 @@ const workers = (Object.values(QUEUE_NAMES) as QueueName[]).map((name) => {
   return worker;
 });
 
+/**
+ * The outbox drainer runs here rather than in the API, because publishing is
+ * background work with its own retry and failure characteristics — the same
+ * reason the worker exists at all (ADR-001).
+ */
+const producerQueues = {
+  email: new Queue(QUEUE_NAMES.EMAIL, { connection }),
+  notifications: new Queue(QUEUE_NAMES.NOTIFICATIONS, { connection }),
+  reports: new Queue(QUEUE_NAMES.REPORTS, { connection }),
+};
+
+const stopDrainer = startDrainer({ prisma, queues: producerQueues, logger });
+
 logger.info(
-  { queues: Object.values(QUEUE_NAMES), node: process.version },
+  { queues: Object.values(QUEUE_NAMES), outboxDrainer: true, node: process.version },
   'businessos worker started',
 );
 
@@ -129,7 +144,9 @@ async function shutdown(signal: string): Promise<void> {
   }, 30_000);
   timer.unref();
 
+  stopDrainer();
   await Promise.allSettled(workers.map((w) => w.close()));
+  await Promise.allSettled(Object.values(producerQueues).map((q) => q.close()));
   await Promise.allSettled([prisma.$disconnect(), connection.quit()]);
 
   clearTimeout(timer);

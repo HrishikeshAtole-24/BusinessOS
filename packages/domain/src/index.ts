@@ -14,5 +14,6 @@ export * from './interval.js';
 export * from './password.js';
 export * from './priority-queue.js';
 export * from './state-machine.js';
+export * from './timeseries.js';
 export * from './slug.js';
 export * from './tokens.js';

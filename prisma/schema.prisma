@@ -135,6 +135,8 @@ model Organization {
   expenses           Expense[]
   attendanceSessions AttendanceSession[]
   notifications      Notification[]
+  outboxEvents       OutboxEvent[]
+  metricsDaily       MetricDaily[]
 
   @@index([status])
   @@map("organizations")
@@ -1127,4 +1129,122 @@ enum NotificationPriority {
   URGENT
 
   @@map("notification_priority")
+}
+
+// ---------------------------------------------------------------------------
+// Transactional outbox (report Section 14.2)
+// ---------------------------------------------------------------------------
+
+/// A domain event, written in the SAME transaction as the change it describes.
+///
+/// Section 14.2 states the problem: "to avoid the dual-write problem where the
+/// database transaction succeeds but event publishing fails, use a
+/// transactional outbox".
+///
+/// The gap this closes is real and was live in this codebase until now.
+/// Expense approval committed to PostgreSQL, then enqueued an email to Redis
+/// afterwards. A crash between the two lost the email silently; an enqueue
+/// inside the transaction would have sent mail about a change that then rolled
+/// back. Neither is acceptable, and no ordering of two separate systems fixes
+/// it — the write has to be one atomic act, which means the event goes in the
+/// same database.
+///
+/// A worker then drains this table and publishes. That handoff is
+/// at-least-once, which is why every consumer must be idempotent (Section 14.3).
+model OutboxEvent {
+  id             String @id @default(uuid(7)) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+
+  /// Past tense, `<aggregate>.<event>`, e.g. "expense.approved".
+  type          String @db.VarChar(80)
+  aggregateType String @map("aggregate_type") @db.VarChar(60)
+  aggregateId   String @map("aggregate_id") @db.Uuid
+
+  /// Everything a consumer needs, captured at write time. Consumers must not
+  /// re-read the aggregate: by the time the event is processed it may have
+  /// changed again, and the event describes what happened THEN.
+  payload Json @db.JsonB
+
+  status    OutboxStatus @default(PENDING)
+  attempts  Int          @default(0)
+  /// Truncated. A stack trace here would be unbounded and is in the logs.
+  lastError String?      @map("last_error") @db.VarChar(500)
+
+  /// Exponential backoff between attempts.
+  availableAt DateTime  @default(now()) @map("available_at") @db.Timestamptz(3)
+  processedAt DateTime? @map("processed_at") @db.Timestamptz(3)
+
+  /// Correlates the event back to the request that caused it.
+  requestId String? @map("request_id") @db.VarChar(64)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// The drain query: pending work that is due, oldest first. A partial index
+  /// would be tighter still, but this composite already keeps the scan off the
+  /// processed rows, which are the vast majority over time.
+  @@index([status, availableAt])
+  @@index([organizationId, aggregateType, aggregateId])
+  @@map("outbox_events")
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  /// Exhausted its attempts. Kept for inspection and replay (Section 15.3).
+  FAILED
+
+  @@map("outbox_status")
+}
+
+// ---------------------------------------------------------------------------
+// Analytics read model (report Section 17)
+// ---------------------------------------------------------------------------
+
+/// A pre-aggregated daily metric.
+///
+/// Section 17.1: "Do not calculate every dashboard metric from raw tables on
+/// every request." Operational and analytical queries have different shapes —
+/// one wants a single row by id, the other wants a scan over months — and
+/// serving both from the same tables makes the dashboard slow and the
+/// transactional path noisy.
+///
+/// One row per organization, day, metric and optional dimension. That grain is
+/// what makes prefix sums possible: a contiguous daily series can answer any
+/// date range in O(1) after an O(n) pass, instead of re-scanning the source
+/// tables per request.
+model MetricDaily {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  /// The day this value belongs to, in the organization's timezone.
+  day            DateTime @db.Date
+
+  /// e.g. "tasks.completed", "expenses.approved.amount", "attendance.net_hours".
+  metric    String @db.VarChar(80)
+  /// Optional breakdown, e.g. a department or project id. Empty string is the
+  /// organization-wide total.
+  ///
+  /// Deliberately NOT nullable. PostgreSQL treats NULL as distinct from NULL in
+  /// a unique constraint, so `(org, day, metric, NULL)` could be inserted twice
+  /// and the uniqueness this row depends on would silently not hold. An empty
+  /// string is a real value and the constraint actually bites.
+  dimension String @default("") @db.VarChar(80)
+
+  /// Decimal, not float: some of these are money (Section 28.2).
+  value Decimal @db.Decimal(16, 2)
+  /// How many source rows produced it, for averages and sanity checks.
+  count Int     @default(0)
+
+  computedAt DateTime @default(now()) @map("computed_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Recomputing a day must overwrite, never duplicate — the aggregation job is
+  /// idempotent because of this constraint.
+  @@unique([organizationId, day, metric, dimension])
+  /// The range query: one metric across a window.
+  @@index([organizationId, metric, day])
+  @@map("metrics_daily")
 }

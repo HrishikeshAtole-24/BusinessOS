@@ -609,3 +609,48 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* --- Sparkline ------------------------------------------------------------
+   Server-rendered inline SVG. No chart library and no client JavaScript
+   (ADR-016) — the whole thing is arithmetic over an array. */
+
+.sparkline {
+  width: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.sparkline-area {
+  fill: var(--accent);
+  opacity: 0.12;
+}
+
+.sparkline-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* The rolling average, deliberately quieter than the raw series. */
+.sparkline-overlay {
+  fill: none;
+  stroke: var(--text-tertiary);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.sparkline-dot {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+
+.sparkline-empty {
+  display: grid;
+  place-items: center;
+  font-size: var(--text-sm);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
