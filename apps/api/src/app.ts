@@ -135,7 +135,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(notificationRoutes);
   await app.register(analyticsRoutes);
 
-  app.get('/', async () => ({
+  app.get('/', () => ({
     name: 'BusinessOS API',
     version: '0.1.0',
     docs: '/docs',

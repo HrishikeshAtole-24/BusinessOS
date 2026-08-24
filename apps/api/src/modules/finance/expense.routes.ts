@@ -127,7 +127,7 @@ export function expenseRoutes(app: FastifyInstance, _opts: unknown, done: () => 
         !input.receiptKey
       ) {
         throw new BusinessRuleError(
-          `${category.name} claims above ${category.receiptRequiredAbove} need a receipt.`,
+          `${category.name} claims above ${category.receiptRequiredAbove.toString()} need a receipt.`,
         );
       }
 

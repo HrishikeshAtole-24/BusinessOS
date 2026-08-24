@@ -10,7 +10,7 @@ import {
   topologicalSort,
   wouldCreateEdgeCycle,
   type Edge,
-} from './graph';
+} from './graph.js';
 
 /**
  * The report's own worked example (Section 10):

@@ -4,7 +4,7 @@ import {
   compareDeliverables,
   orderForDelivery,
   type Deliverable,
-} from './priority-queue';
+} from './priority-queue.js';
 
 const numeric = (a: number, b: number) => a - b;
 

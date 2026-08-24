@@ -55,10 +55,12 @@ export function LeaveRequestForm({ types }: { types: LeaveType[] }) {
         setError(body.error?.message ?? 'Could not submit the request.');
         return;
       }
+      const days = body.days ?? 0;
+      const awaiting = body.awaiting ?? 'an approver';
       setSuccess(
         body.status === 'APPROVED'
-          ? `${body.days} day(s) approved automatically.`
-          : `${body.days} day(s) requested — waiting on ${body.awaiting}.`,
+          ? `${days} day(s) approved automatically.`
+          : `${days} day(s) requested — waiting on ${awaiting}.`,
       );
       setStartDate('');
       setEndDate('');

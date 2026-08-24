@@ -9,7 +9,7 @@ import {
   summariseWork,
   totalDuration,
   type Interval,
-} from './interval';
+} from './interval.js';
 
 /** Minutes past midnight, in ms — readable test fixtures. */
 const at = (hours: number, minutes = 0) => (hours * 60 + minutes) * 60_000;

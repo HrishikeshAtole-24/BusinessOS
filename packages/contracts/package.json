@@ -10,14 +10,17 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "eslint src"
   },
   "dependencies": {
     "zod": "catalog:"
   },
   "devDependencies": {
     "@businessos/config": "workspace:*",
+    "@businessos/eslint-config": "workspace:*",
     "@types/node": "^24.10.1",
+    "eslint": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

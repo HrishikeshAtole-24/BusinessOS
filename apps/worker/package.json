@@ -6,10 +6,11 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "lint": "eslint src"
   },
   "dependencies": {
     "@businessos/contracts": "workspace:*",
@@ -23,7 +24,9 @@
   },
   "devDependencies": {
     "@businessos/config": "workspace:*",
+    "@businessos/eslint-config": "workspace:*",
     "@types/node": "^24.10.1",
+    "eslint": "catalog:",
     "pino-pretty": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",

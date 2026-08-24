@@ -9,7 +9,8 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src"
   },
   "dependencies": {
     "@businessos/contracts": "workspace:*",
@@ -18,7 +19,9 @@
   },
   "devDependencies": {
     "@businessos/config": "workspace:*",
+    "@businessos/eslint-config": "workspace:*",
     "@types/node": "^24.10.1",
+    "eslint": "catalog:",
     "typescript": "catalog:"
   }
 }

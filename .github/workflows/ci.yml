@@ -1,0 +1,149 @@
+name: CI
+
+# Report Section 21.2. The stages that make sense for this repository today:
+# install from a lockfile, generate the Prisma client, type-check, lint, test
+# against a real PostgreSQL, and build every app.
+#
+# Deploy, image publishing and container scanning are in the report's list but
+# have nothing to deploy to yet, so they are deliberately absent rather than
+# stubbed — a step that always passes because it does nothing is worse than no
+# step at all.
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+  pull_request:
+    branches: [main]
+  # Lets the pipeline be run by hand while it is still being shaped.
+  workflow_dispatch:
+
+# A new push to the same branch cancels the previous run. Without this a busy
+# branch queues runs that are already obsolete.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Fail loudly rather than prompting when a dependency is missing.
+  CI: true
+
+jobs:
+  verify:
+    name: Typecheck, lint and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      # A real PostgreSQL, because the integration tests exercise transactions,
+      # constraints and the tenant boundary. A mock would pass while proving
+      # nothing about any of them (Section 20.1).
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: businessos
+          POSTGRES_PASSWORD: businessos
+          POSTGRES_DB: businessos_test
+        ports: ['5432:5432']
+        # Without the health check, the first migration races the container.
+        options: >-
+          --health-cmd "pg_isready -U businessos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:8-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://businessos:businessos@localhost:5432/businessos_test
+      # No pooler in CI, so both point at the same server. In production these
+      # differ — see ADR-015.
+      DIRECT_URL: postgresql://businessos:businessos@localhost:5432/businessos_test
+      REDIS_URL: redis://localhost:6379
+      SESSION_SECRET: ci-only-not-a-real-secret-at-least-32-chars
+      NODE_ENV: test
+      LOG_LEVEL: silent
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          # Read from .nvmrc so CI cannot drift from local (ADR-012).
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        # --frozen-lockfile fails if package.json and the lockfile disagree,
+        # which is the point: CI must build what was committed, not resolve
+        # something new.
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        # Before typecheck: the generated client is a compile-time dependency
+        # and is not committed.
+        run: pnpm db:generate
+
+      - name: Apply migrations
+        # `deploy`, not `dev` — it applies committed migrations and never
+        # generates new ones or prompts (Section 21.3).
+        run: pnpm exec prisma migrate deploy
+
+      - name: Seed
+        # The integration tests assert against the seeded roles and permissions.
+        run: pnpm db:seed
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Lint
+        run: pnpm -r lint
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Test
+        run: pnpm -r test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Building a tree that does not typecheck wastes minutes to tell us
+    # something the previous job already said.
+    needs: verify
+
+    env:
+      DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+      DIRECT_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+      REDIS_URL: redis://localhost:6379
+      SESSION_SECRET: ci-only-not-a-real-secret-at-least-32-chars
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Build all apps
+        # No database is reached here: the Next build renders no dynamic page,
+        # and the API/worker builds are pure compilation. The placeholder URLs
+        # above only satisfy env validation at import time.
+        run: pnpm build

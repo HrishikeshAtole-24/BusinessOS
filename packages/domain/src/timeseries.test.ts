@@ -6,7 +6,7 @@ import {
   densify,
   rollingAverage,
   type DailyPoint,
-} from './timeseries';
+} from './timeseries.js';
 
 const series = (values: number[], from = '2026-01-01'): DailyPoint[] =>
   values.map((value, i) => ({ day: addDays(from, i), value, count: value > 0 ? 1 : 0 }));

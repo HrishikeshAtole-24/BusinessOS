@@ -39,7 +39,9 @@ async function probe(check: () => Promise<unknown>): Promise<DependencyResult> {
 }
 
 export function healthRoutes(app: FastifyInstance, _opts: unknown, done: () => void): void {
-  app.get('/health/live', async () => ({
+  // Deliberately synchronous: liveness must not depend on anything that can
+  // block, which is the whole distinction from readiness.
+  app.get('/health/live', () => ({
     status: 'ok',
     uptimeSeconds: Math.round(process.uptime()),
   }));

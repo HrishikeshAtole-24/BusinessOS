@@ -7,7 +7,7 @@ import {
   projectStateMachine,
   taskStateMachine,
   type TaskStatus,
-} from './state-machine';
+} from './state-machine.js';
 
 describe('task state machine (Section 8.1)', () => {
   it('follows the happy path', () => {
@@ -15,7 +15,7 @@ describe('task state machine (Section 8.1)', () => {
     for (let i = 0; i < path.length - 1; i += 1) {
       expect(
         taskStateMachine.canTransition(path[i]!, path[i + 1]!),
-        `${path[i]} -> ${path[i + 1]}`,
+        `${path[i]!} -> ${path[i + 1]!}`,
       ).toBe(true);
     }
   });

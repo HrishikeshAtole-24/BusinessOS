@@ -8,7 +8,7 @@ import {
   outcomeAfterDecision,
   type PolicyStepDefinition,
   type ResolutionContext,
-} from './approval';
+} from './approval.js';
 
 /** The report's own example chain: Manager -> Finance -> Director above 50k. */
 const POLICY: PolicyStepDefinition[] = [

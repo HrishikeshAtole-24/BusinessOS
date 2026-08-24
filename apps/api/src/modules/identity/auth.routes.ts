@@ -37,10 +37,16 @@ const AUTH_RATE_LIMIT = {
       max: 10,
       timeWindow: '5 minutes',
       keyGenerator: (request: { ip: string; body?: unknown }) => {
-        const email =
-          typeof request.body === 'object' && request.body !== null && 'email' in request.body
-            ? String((request.body as { email?: unknown }).email ?? '')
-            : '';
+        // Only a genuine string counts. Anything else — an object, an array —
+        // would stringify to "[object Object]" and put every such request in
+        // one shared bucket, which is both a way to exhaust someone else's
+        // budget and a way to dodge the per-account limit.
+        const body: unknown = request.body;
+        const raw =
+          typeof body === 'object' && body !== null && 'email' in body
+            ? (body as { email?: unknown }).email
+            : undefined;
+        const email = typeof raw === 'string' ? raw.toLowerCase().slice(0, 320) : '';
         return `auth:${request.ip}:${email}`;
       },
     },

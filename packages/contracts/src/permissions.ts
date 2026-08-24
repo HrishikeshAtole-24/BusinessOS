@@ -117,10 +117,13 @@ export const PERMISSION_LIST = [
   { key: 'analytics.read', module: 'analytics', description: 'View company-wide analytics' },
 ] as const satisfies readonly PermissionDefinition[];
 
-/** Every permission key, for validation and seeding. */
-export const ALL_PERMISSION_KEYS: readonly PermissionKey[] = PERMISSION_LIST.map(
-  (p) => p.key,
-) as PermissionKey[];
+/**
+ * Every permission key, for validation and seeding.
+ *
+ * No cast needed: `as const satisfies` above already narrows each `key` to its
+ * literal type, so the mapped array is `PermissionKey[]` on its own.
+ */
+export const ALL_PERMISSION_KEYS: readonly PermissionKey[] = PERMISSION_LIST.map((p) => p.key);
 
 const PERMISSION_KEY_SET: ReadonlySet<string> = new Set(ALL_PERMISSION_KEYS);
 

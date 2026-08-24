@@ -53,6 +53,13 @@ export function InviteForm({ roles }: { roles: Role[] }) {
         return;
       }
 
+      if (!body.acceptToken) {
+        // Better to say the link is missing than to hand someone a URL
+        // ending in "undefined" that fails only when they click it.
+        setError('The invitation was created but no link came back. Check the list below.');
+        router.refresh();
+        return;
+      }
       setInviteLink(`${window.location.origin}/invite/${body.acceptToken}`);
       setEmail('');
       // Re-run the Server Components so the pending-invitations table below

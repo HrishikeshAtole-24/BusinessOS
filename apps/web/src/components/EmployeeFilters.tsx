@@ -43,7 +43,8 @@ export function EmployeeFilters({
     if (q === initial.q) return;
     const timer = setTimeout(() => apply({ q }), 350);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Intentionally keyed on `q` alone: including `apply` or `initial.q` would
+    // re-fire the debounce on every render and defeat the point of debouncing.
   }, [q]);
 
   function apply(changes: Record<string, string>) {

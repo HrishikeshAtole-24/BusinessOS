@@ -38,5 +38,7 @@ export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';
   if (parts.length === 1) return parts[0]!.slice(0, 2);
-  return `${parts[0]![0]}${parts[parts.length - 1]![0]}`;
+  // charAt, not [0]: indexing is `string | undefined`, and a one-character
+  // name would otherwise interpolate the literal text "undefined".
+  return `${parts[0]!.charAt(0)}${parts[parts.length - 1]!.charAt(0)}`;
 }

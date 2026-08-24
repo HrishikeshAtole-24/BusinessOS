@@ -8,7 +8,7 @@ import {
   maxDepth,
   wouldCreateCycle,
   type ParentMap,
-} from './hierarchy';
+} from './hierarchy.js';
 
 /**
  * The cycle tests are the important ones. A cycle in a reporting line is not a
@@ -82,8 +82,9 @@ describe('wouldCreateCycle', () => {
   });
 
   it('allows an unrelated new node to attach anywhere', () => {
-    const chart = orgChart();
-    chart.set('new-hire', null);
+    // ParentMap is a ReadonlyMap on purpose — these algorithms never mutate
+    // their input — so the fixture is extended by building a new map.
+    const chart: ParentMap = new Map([...orgChart(), ['new-hire', null]]);
     expect(wouldCreateCycle('new-hire', 'manager', chart)).toBe(false);
   });
 
