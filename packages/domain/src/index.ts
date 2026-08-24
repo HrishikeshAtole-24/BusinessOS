@@ -7,6 +7,7 @@
  * it imports neither Fastify nor Prisma.
  */
 
+export * from './approval.js';
 export * from './graph.js';
 export * from './hierarchy.js';
 export * from './password.js';

@@ -39,6 +39,14 @@ export type AuditAction =
   | 'task.updated'
   | 'task.status_changed'
   | 'task.dependency_added'
+  // approvals, leave, expenses
+  | 'approval.submitted'
+  | 'approval.step_approved'
+  | 'approval.step_rejected'
+  | 'approval.policy_created'
+  | 'expense.updated'
+  | 'expense.reimbursed'
+  | 'leave.cancelled'
   // invitations
   | 'invitation.sent'
   | 'invitation.accepted'

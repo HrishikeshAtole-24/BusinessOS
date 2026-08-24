@@ -44,12 +44,13 @@ model User {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  memberships     Membership[]
-  sessions        Session[]
-  auditLogs       AuditLog[]
-  sentInvitations Invitation[]  @relation("InvitationInviter")
-  employeeRecords Employee[]
-  taskComments    TaskComment[]
+  memberships       Membership[]
+  sessions          Session[]
+  auditLogs         AuditLog[]
+  sentInvitations   Invitation[]   @relation("InvitationInviter")
+  employeeRecords   Employee[]
+  taskComments      TaskComment[]
+  approvalDecisions ApprovalStep[]
 
   @@index([status])
   @@map("users")
@@ -115,14 +116,21 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  memberships Membership[]
-  roles       Role[]
-  invitations Invitation[]
-  auditLogs   AuditLog[]
-  departments Department[]
-  employees   Employee[]
-  projects    Project[]
-  tasks       Task[]
+  memberships       Membership[]
+  roles             Role[]
+  invitations       Invitation[]
+  auditLogs         AuditLog[]
+  departments       Department[]
+  employees         Employee[]
+  projects          Project[]
+  tasks             Task[]
+  approvalPolicies  ApprovalPolicy[]
+  approvalRequests  ApprovalRequest[]
+  leaveTypes        LeaveType[]
+  leaveBalances     LeaveBalance[]
+  leaveRequests     LeaveRequest[]
+  expenseCategories ExpenseCategory[]
+  expenses          Expense[]
 
   @@index([status])
   @@map("organizations")
@@ -409,17 +417,23 @@ model Employee {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization       Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user               User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
-  department         Department?     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user                User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  department          Department?          @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   /// SetNull, not Cascade: a manager leaving must not delete their reports.
-  manager            Employee?       @relation("ReportingLine", fields: [managerId], references: [id], onDelete: SetNull)
-  reports            Employee[]      @relation("ReportingLine")
-  headedDepartments  Department[]    @relation("DepartmentHead")
-  ownedProjects      Project[]       @relation("ProjectOwner")
-  projectMemberships ProjectMember[]
-  assignedTasks      Task[]          @relation("TaskAssignee")
-  reportedTasks      Task[]          @relation("TaskReporter")
+  manager             Employee?            @relation("ReportingLine", fields: [managerId], references: [id], onDelete: SetNull)
+  reports             Employee[]           @relation("ReportingLine")
+  headedDepartments   Department[]         @relation("DepartmentHead")
+  ownedProjects       Project[]            @relation("ProjectOwner")
+  projectMemberships  ProjectMember[]
+  assignedTasks       Task[]               @relation("TaskAssignee")
+  reportedTasks       Task[]               @relation("TaskReporter")
+  policyStepApprovals ApprovalPolicyStep[] @relation("PolicyStepApprover")
+  approvalRequests    ApprovalRequest[]    @relation("ApprovalRequester")
+  approvalSteps       ApprovalStep[]       @relation("StepApprover")
+  leaveBalances       LeaveBalance[]
+  leaveRequests       LeaveRequest[]
+  expenses            Expense[]
 
   @@unique([organizationId, employeeCode])
   @@unique([organizationId, workEmail])
@@ -496,6 +510,7 @@ model Project {
   owner        Employee?       @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   members      ProjectMember[]
   tasks        Task[]
+  expenses     Expense[]
 
   @@unique([organizationId, key])
   @@index([organizationId, status])
@@ -637,4 +652,346 @@ model TaskComment {
 
   @@index([organizationId, taskId, createdAt])
   @@map("task_comments")
+}
+
+// ---------------------------------------------------------------------------
+// Approval engine (report Section 13) — one workflow, many domains
+// ---------------------------------------------------------------------------
+
+/// A reusable approval policy for one kind of thing.
+///
+/// Section 14 of the origin transcript: "Don't build separate approval logic
+/// everywhere." Leave, expenses, purchases and WFH all share the same
+/// semantics — a sequence of steps, each with an approver and a decision — so
+/// they share one engine and differ only in their policy rows.
+model ApprovalPolicy {
+  id             String             @id @default(uuid(7)) @db.Uuid
+  organizationId String             @map("organization_id") @db.Uuid
+  /// What this policy governs, e.g. "EXPENSE" or "LEAVE".
+  entityType     ApprovalEntityType @map("entity_type")
+  name           String             @db.VarChar(120)
+  description    String?            @db.VarChar(255)
+  isActive       Boolean            @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  steps        ApprovalPolicyStep[]
+  requests     ApprovalRequest[]
+
+  /// One active policy per entity type per tenant. Two active policies would
+  /// make routing ambiguous, and ambiguity in an approval chain is a hole.
+  @@unique([organizationId, entityType, name])
+  @@index([organizationId, entityType, isActive])
+  @@map("approval_policies")
+}
+
+enum ApprovalEntityType {
+  EXPENSE
+  LEAVE
+
+  @@map("approval_entity_type")
+}
+
+/// One step in a policy. Section 13.2 lists the approver-selection strategies.
+model ApprovalPolicyStep {
+  id       String @id @default(uuid(7)) @db.Uuid
+  policyId String @map("policy_id") @db.Uuid
+  /// 1-based. Steps run in this order.
+  sequence Int
+  name     String @db.VarChar(120)
+
+  approverType       ApproverType @map("approver_type")
+  /// For ROLE: the RBAC role key whose holders may decide, e.g. "finance".
+  approverRoleKey    String?      @map("approver_role_key") @db.VarChar(64)
+  /// For SPECIFIC_USER: the named approver.
+  approverEmployeeId String?      @map("approver_employee_id") @db.Uuid
+
+  /// Threshold routing (Section 13.2): this step only applies when the request
+  /// amount is at least this much. A director step with minAmount 50000 is
+  /// skipped entirely for a small claim.
+  minAmount Decimal? @map("min_amount") @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  policy   ApprovalPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  approver Employee?      @relation("PolicyStepApprover", fields: [approverEmployeeId], references: [id], onDelete: SetNull)
+
+  @@unique([policyId, sequence])
+  @@map("approval_policy_steps")
+}
+
+enum ApproverType {
+  /// The requester's direct manager, resolved from Employee.managerId.
+  MANAGER
+  /// Head of the requester's department.
+  DEPARTMENT_HEAD
+  /// Anyone holding a given RBAC role.
+  ROLE
+  /// A named person.
+  SPECIFIC_USER
+
+  @@map("approver_type")
+}
+
+/// A live approval, attached to one expense or leave request.
+///
+/// `entityType` + `entityId` is a deliberate polymorphic reference rather than
+/// a foreign key per domain. It is the price of one engine serving many
+/// domains; the alternative is a near-identical approvals table per module.
+model ApprovalRequest {
+  id             String             @id @default(uuid(7)) @db.Uuid
+  organizationId String             @map("organization_id") @db.Uuid
+  entityType     ApprovalEntityType @map("entity_type")
+  entityId       String             @map("entity_id") @db.Uuid
+  policyId       String?            @map("policy_id") @db.Uuid
+
+  status          ApprovalStatus @default(PENDING)
+  /// Which step is awaiting a decision. Null once the request is resolved.
+  currentSequence Int?           @map("current_sequence")
+
+  /// The employee the request is about — the subject of MANAGER and
+  /// DEPARTMENT_HEAD resolution.
+  requesterId String   @map("requester_id") @db.Uuid
+  amount      Decimal? @db.Decimal(14, 2)
+  currency    String?  @db.Char(3)
+
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  version    Int       @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  policy       ApprovalPolicy? @relation(fields: [policyId], references: [id], onDelete: SetNull)
+  requester    Employee        @relation("ApprovalRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  steps        ApprovalStep[]
+
+  /// One live approval per entity. A second would let the same expense be
+  /// approved twice down two different chains.
+  @@unique([entityType, entityId])
+  @@index([organizationId, status, currentSequence])
+  @@index([organizationId, requesterId])
+  @@map("approval_requests")
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+
+  @@map("approval_status")
+}
+
+/// A materialised step of a live approval.
+///
+/// Steps are SNAPSHOT from the policy at submission time, with approvers
+/// already resolved. Editing a policy afterwards must not retroactively change
+/// who is approving an in-flight request, or reorder a chain someone has
+/// already acted on.
+model ApprovalStep {
+  id        String @id @default(uuid(7)) @db.Uuid
+  requestId String @map("request_id") @db.Uuid
+  sequence  Int
+  name      String @db.VarChar(120)
+
+  approverType       ApproverType @map("approver_type")
+  /// Resolved at materialisation. Null for a ROLE step, where any holder of
+  /// the role may decide.
+  approverEmployeeId String?      @map("approver_employee_id") @db.Uuid
+  approverRoleKey    String?      @map("approver_role_key") @db.VarChar(64)
+
+  status ApprovalStepStatus @default(PENDING)
+
+  /// Who actually decided, and when. The user, not the employee: the audit
+  /// question is "which account clicked approve".
+  decidedById String?   @map("decided_by_id") @db.Uuid
+  decidedAt   DateTime? @map("decided_at") @db.Timestamptz(3)
+  comment     String?   @db.VarChar(1000)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  request   ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approver  Employee?       @relation("StepApprover", fields: [approverEmployeeId], references: [id], onDelete: SetNull)
+  decidedBy User?           @relation(fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@unique([requestId, sequence])
+  @@index([approverEmployeeId, status])
+  @@map("approval_steps")
+}
+
+enum ApprovalStepStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  /// Threshold not met, or no approver could be resolved.
+  SKIPPED
+
+  @@map("approval_step_status")
+}
+
+// ---------------------------------------------------------------------------
+// Leave (report Section 3.1, module "Leave")
+// ---------------------------------------------------------------------------
+
+model LeaveType {
+  id               String  @id @default(uuid(7)) @db.Uuid
+  organizationId   String  @map("organization_id") @db.Uuid
+  name             String  @db.VarChar(80)
+  code             String  @db.VarChar(16)
+  /// Days granted per year. Zero means unlimited/unpaid.
+  annualQuota      Decimal @default(0) @map("annual_quota") @db.Decimal(5, 1)
+  /// Whether a request consumes balance. Unpaid leave does not.
+  isPaid           Boolean @default(true) @map("is_paid")
+  requiresApproval Boolean @default(true) @map("requires_approval")
+  colour           String? @db.VarChar(9)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  balances     LeaveBalance[]
+  requests     LeaveRequest[]
+
+  @@unique([organizationId, code])
+  @@map("leave_types")
+}
+
+/// Remaining entitlement for one employee, one leave type, one year.
+model LeaveBalance {
+  id             String  @id @default(uuid(7)) @db.Uuid
+  organizationId String  @map("organization_id") @db.Uuid
+  employeeId     String  @map("employee_id") @db.Uuid
+  leaveTypeId    String  @map("leave_type_id") @db.Uuid
+  year           Int
+  entitled       Decimal @default(0) @db.Decimal(5, 1)
+  /// Deducted when a request is APPROVED, restored if it is later cancelled.
+  used           Decimal @default(0) @db.Decimal(5, 1)
+  /// Held while a request is pending, so two overlapping requests cannot both
+  /// pass the balance check.
+  pending        Decimal @default(0) @db.Decimal(5, 1)
+
+  /// Optimistic concurrency. Section 20.2 names "concurrent leave-balance
+  /// updates" as a critical test: two requests approved at the same instant
+  /// must not both deduct from the same balance.
+  version Int @default(0)
+
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType    LeaveType    @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, leaveTypeId, year])
+  @@index([organizationId, year])
+  @@map("leave_balances")
+}
+
+model LeaveRequest {
+  id             String      @id @default(uuid(7)) @db.Uuid
+  organizationId String      @map("organization_id") @db.Uuid
+  employeeId     String      @map("employee_id") @db.Uuid
+  leaveTypeId    String      @map("leave_type_id") @db.Uuid
+  status         LeaveStatus @default(DRAFT)
+
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+  /// Working days requested. Stored rather than derived so a later change to
+  /// the holiday calendar cannot silently rewrite history.
+  days      Decimal  @db.Decimal(5, 1)
+  /// A half day is 0.5 on the first or last date.
+  halfDay   Boolean  @default(false) @map("half_day")
+  reason    String?  @db.VarChar(1000)
+
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(3)
+  resolvedAt  DateTime? @map("resolved_at") @db.Timestamptz(3)
+  version     Int       @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType    LeaveType    @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, employeeId, status])
+  @@index([organizationId, status, startDate])
+  @@map("leave_requests")
+}
+
+enum LeaveStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CANCELLED
+
+  @@map("leave_status")
+}
+
+// ---------------------------------------------------------------------------
+// Expenses (report Section 3.1, module "Expenses")
+// ---------------------------------------------------------------------------
+
+model ExpenseCategory {
+  id                   String   @id @default(uuid(7)) @db.Uuid
+  organizationId       String   @map("organization_id") @db.Uuid
+  name                 String   @db.VarChar(80)
+  code                 String   @db.VarChar(16)
+  /// Claims above this need an attached receipt.
+  receiptRequiredAbove Decimal? @map("receipt_required_above") @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  expenses     Expense[]
+
+  @@unique([organizationId, code])
+  @@map("expense_categories")
+}
+
+model Expense {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  employeeId     String        @map("employee_id") @db.Uuid
+  categoryId     String        @map("category_id") @db.Uuid
+  projectId      String?       @map("project_id") @db.Uuid
+  status         ExpenseStatus @default(DRAFT)
+
+  /// Section 28.2: amount + currency, never a float.
+  amount   Decimal @db.Decimal(14, 2)
+  currency String  @db.Char(3)
+
+  spentOn     DateTime @map("spent_on") @db.Date
+  description String   @db.VarChar(500)
+  /// Object-storage key. Section 19: the database stores metadata, not bytes.
+  receiptKey  String?  @map("receipt_key") @db.VarChar(255)
+
+  submittedAt  DateTime? @map("submitted_at") @db.Timestamptz(3)
+  resolvedAt   DateTime? @map("resolved_at") @db.Timestamptz(3)
+  reimbursedAt DateTime? @map("reimbursed_at") @db.Timestamptz(3)
+  version      Int       @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  category     ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  project      Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, employeeId, status])
+  @@index([organizationId, status, spentOn])
+  @@map("expenses")
+}
+
+enum ExpenseStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  REIMBURSED
+
+  @@map("expense_status")
 }
