@@ -8,6 +8,9 @@ import { logger } from './lib/logger.js';
 import { redis } from './lib/redis.js';
 import { authPlugin } from './plugins/auth.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
+import { openApiEnabled, swaggerOptions, swaggerUiOptions } from './plugins/openapi.js';
 import { requestContextPlugin, resolveRequestId } from './plugins/request-context.js';
 import { authRoutes } from './modules/identity/auth.routes.js';
 import { invitationRoutes } from './modules/organization/invitation.routes.js';
@@ -118,6 +121,15 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(requestContextPlugin);
   await app.register(errorHandlerPlugin);
   await app.register(authPlugin);
+
+  // Before the routes: swagger collects each schema as its route is
+  // registered, so a later registration would see an empty table.
+  await app.register(swagger, swaggerOptions);
+  if (openApiEnabled) {
+    await app.register(swaggerUi, swaggerUiOptions);
+  }
+  // The raw document, for client generation and contract diffing in CI.
+  app.get('/openapi.json', { schema: { hide: true } }, () => app.swagger());
 
   // --- Routes --------------------------------------------------------------
   await app.register(healthRoutes);

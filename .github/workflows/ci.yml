@@ -111,6 +111,9 @@ jobs:
         run: pnpm format:check
 
       - name: Test
+        # Includes the OpenAPI contract tests, which assert the exact set of
+        # endpoints reachable without a session. A new public route fails here
+        # and has to be added to the allowlist deliberately.
         run: pnpm -r test
 
   build:
