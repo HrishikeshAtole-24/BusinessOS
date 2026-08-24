@@ -68,12 +68,8 @@ const COLUMNS: Array<{ status: TaskStatus; label: string }> = [
  * waiting. Section 26.2 asks to be able to explain not just the algorithm but
  * why the product needed it — this panel is that answer.
  */
-export default async function ProjectDetailPage({
-  params,
-}: {
-  params: Promise<{ projectId: string }>;
-}) {
-  const { projectId } = await params;
+export default async function ProjectDetailPage(props: PageProps<'/projects/[projectId]'>) {
+  const { projectId } = await props.params;
   await requireSession();
 
   const project = await apiFetchOrNull<ProjectDetail>(`/v1/projects/${projectId}`);

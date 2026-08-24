@@ -32,13 +32,9 @@ const STATUS_TONE: Record<string, string> = {
  * filtered view shareable, survivable across a refresh, and correct with the
  * browser back button — none of which `useState` gives you.
  */
-export default async function EmployeesPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+export default async function EmployeesPage(props: PageProps<'/employees'>) {
   const session = await requireSession();
-  const params = await searchParams;
+  const params = await props.searchParams;
 
   const query = new URLSearchParams();
   const q = typeof params['q'] === 'string' ? params['q'] : '';
